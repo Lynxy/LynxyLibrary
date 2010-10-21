@@ -1,0 +1,13 @@
+~$*
+*.suo
+*.csproj.user
+*.vbproj.user
+*.csproj.webinfo
+*.vbproj.webinfo
+
+*/obj/
+*/bin/*/*.exe
+*/bin/*/*.dll
+*/*/*.pdb
+*/*/*.manifest
+*/*/*.config
