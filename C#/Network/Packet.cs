@@ -25,7 +25,7 @@ namespace Lynxy.Network
     public sealed class Packet
     {
         public delegate byte[] EncryptorDelegate(byte[] data);
-        public delegate void SendDataDelegate(ref byte[] data);
+        public delegate void SendDataDelegate(Packet packet, ref byte[] data);
         public event SendDataDelegate DataSent;
 
         private StringBuilder buffer;
@@ -91,7 +91,7 @@ namespace Lynxy.Network
             else
                 ret = this;
             if (DataSent != null)
-                DataSent(ref ret);
+                DataSent(this, ref ret);
             Clear();
         }
 
@@ -104,22 +104,26 @@ namespace Lynxy.Network
         #region String
         public Packet InsertString(string data)
         {
+            if (data == null) return this;
             return InsertString(data, buffer.Length);
         }
 
         public Packet InsertString(string data, int position)
         {
+            if (data == null) return this;
             buffer.Insert(position, data);
             return this;
         }
 
         public Packet InsertStringNT(string data)
         {
+            if (data == null) return this;
             return InsertStringNT(data, buffer.Length);
         }
 
         public Packet InsertStringNT(string data, int position)
         {
+            if (data == null) return this;
             buffer.Insert(position, data + (char)0);
             return this;
         }

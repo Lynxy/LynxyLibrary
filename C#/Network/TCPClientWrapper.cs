@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 
 using System.Net.Sockets;
+using System.IO;
 
 namespace Lynxy.Network
 {
@@ -17,11 +18,17 @@ namespace Lynxy.Network
     /// Use easySocket to build your own socket protocols.</remarks>
     public class TcpClientWrapper : TcpClient
     {
-        public TcpClientWrapper()
+        public int ct1 = 0;
+        public int ct2 = 0;
+        protected int _sendBacklog;
+
+        public TcpClientWrapper(int SendBacklog)
         {
+            _sendBacklog = SendBacklog;
         }
-        public TcpClientWrapper(TcpClient duplicateSocket)
+        public TcpClientWrapper(int SendBacklog, TcpClient duplicateSocket)
         {
+            _sendBacklog = SendBacklog;
             this.Client = new Socket(duplicateSocket.Client.DuplicateAndClose(System.Diagnostics.Process.GetCurrentProcess().Id));
         }
 
@@ -100,7 +107,7 @@ namespace Lynxy.Network
 
         protected virtual void OnDisconnected()
         {
-            if (Connected)
+            if (Client != null && Connected)
                 Close();
             if (Disconnected != null)
             {
@@ -184,14 +191,21 @@ namespace Lynxy.Network
         /// <remarks><c>Address</c> and <c>Port</c> must have already been set.</remarks>
         public void AsyncConnect()
         {
-            BeginConnect(myAddr, myPort, new AsyncCallback(EndASConnect), null);
+            try
+            {
+                BeginConnect(myAddr, myPort, new AsyncCallback(EndASConnect), null);
+            }
+            catch (SocketException)
+            {
+                OnConnectionRefused();
+            }
         }
 
         private void EndASConnect(IAsyncResult ar)
         {
             try
             {
-                if (!Connected)
+                if (Client == null || !Connected)
                 {
                     OnConnectionRefused();
                     return;
@@ -200,7 +214,11 @@ namespace Lynxy.Network
                 EndConnect(ar);
                 OnConnectionEstablished();
             }
-            catch (Exception)
+            catch (IOException)
+            {
+                OnDisconnected();
+            }
+            catch (InvalidOperationException)
             {
                 OnDisconnected();
             }
@@ -217,7 +235,7 @@ namespace Lynxy.Network
         {
             try
             {
-                if (!Connected)
+                if (Client == null || !Connected)
                 {
                     OnDisconnected();
                     return;
@@ -227,7 +245,11 @@ namespace Lynxy.Network
                 w.Write(data);
                 w.Flush();
             }
-            catch (Exception)
+            catch (IOException)
+            {
+                OnDisconnected();
+            }
+            catch (InvalidOperationException)
             {
                 OnDisconnected();
             }
@@ -242,7 +264,7 @@ namespace Lynxy.Network
         {
             try
             {
-                if (!Connected)
+                if (Client == null || !Connected)
                 {
                     OnDisconnected();
                     return;
@@ -250,7 +272,11 @@ namespace Lynxy.Network
 
                 GetStream().Write(data, 0, size);
             }
-            catch (Exception)
+            catch (IOException)
+            {
+                OnDisconnected();
+            }
+            catch (InvalidOperationException)
             {
                 OnDisconnected();
             }
@@ -264,9 +290,18 @@ namespace Lynxy.Network
         /// <remarks></remarks>
         public void AsyncSend(byte[] data, int size)
         {
+            ct1++;
+            ct2++;
+
+            if (ct1 == _sendBacklog)
+            {
+                OnDisconnected();
+                return;
+            }
+
             try
             {
-                if (!Connected)
+                if (Client == null || !Connected)
                 {
                     OnDisconnected();
                     return;
@@ -274,18 +309,22 @@ namespace Lynxy.Network
 
                 GetStream().BeginWrite(data, 0, size, new AsyncCallback(EndASSend), null);
             }
-            catch (Exception)
+            catch (IOException)
+            {
+                OnDisconnected();
+            }
+            catch (InvalidOperationException)
             {
                 OnDisconnected();
             }
         }
 
-        //TODO: FIX ME
         private void EndASSend(IAsyncResult ar)
         {
+            ct1--;
             try
             {
-                if (!Connected)
+                if (Client == null || !Connected)
                 {
                     OnDisconnected();
                     return;
@@ -294,7 +333,11 @@ namespace Lynxy.Network
                 GetStream().EndWrite(ar);
                 OnDataSent();
             }
-            catch (Exception)
+            catch (IOException)
+            {
+                OnDisconnected();
+            }
+            catch (InvalidOperationException)
             {
                 OnDisconnected();
             }
@@ -314,7 +357,7 @@ namespace Lynxy.Network
         {
             try
             {
-                if (!Connected)
+                if (Client == null || !Connected)
                 {
                     OnDisconnected();
                     return null;
@@ -336,7 +379,12 @@ namespace Lynxy.Network
                 Array.Copy(ReadBuf, 0, ret, 0, Count);
                 return ret;
             }
-            catch (Exception)
+            catch (IOException)
+            {
+                OnDisconnected();
+                return new byte[0];
+            }
+            catch (InvalidOperationException)
             {
                 OnDisconnected();
                 return new byte[0];
@@ -361,7 +409,7 @@ namespace Lynxy.Network
         {
             try
             {
-                if (!Connected)
+                if (Client == null || !Connected)
                 {
                     OnDisconnected();
                     return;
@@ -371,7 +419,11 @@ namespace Lynxy.Network
                 Array.Resize(ref asReadBuffer, asReadSize);
                 GetStream().BeginRead(asReadBuffer, 0, asReadSize, new AsyncCallback(EndASRead), null);
             }
-            catch (Exception)
+            catch (IOException)
+            {
+                OnDisconnected();
+            }
+            catch (InvalidOperationException)
             {
                 OnDisconnected();
             }
@@ -381,7 +433,7 @@ namespace Lynxy.Network
         {
             try
             {
-                if (!Connected)
+                if (Client == null || !Connected)
                 {
                     OnDisconnected();
                     return;
@@ -408,7 +460,11 @@ namespace Lynxy.Network
                     StartASRead();
                 }
             }
-            catch (Exception)
+            catch (IOException)
+            {
+                OnDisconnected();
+            }
+            catch (InvalidOperationException)
             {
                 OnDisconnected();
             }
